@@ -3,9 +3,6 @@
 // 식품의약품안전처_의약품 제품 허가정보 오픈API를 호출해서
 // 전체 데이터를 페이지네이션으로 수집하고, 대시보드가 읽을 요약 JSON을 만듭니다.
 //
-// 전체 규모가 약 4만3천여 건으로 DMF보다 훨씬 커서, 프론트엔드에서 다루기 쉽도록
-// 핵심 필드만 뽑아서 슬림하게 저장합니다.
-//
 // 실행: node scripts/fetch-drug.mjs
 // 필요 환경변수: DRUG_API_KEY (공공데이터포털에서 발급받은 인증키, 인코딩된 형태 그대로)
 
@@ -14,7 +11,7 @@ import path from "node:path";
 
 const ENDPOINT = "https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService07/getDrugPrdtPrmsnInq07";
 const NUM_OF_ROWS = 100;
-const MAX_PAGES = 600; // 안전장치: 최대 6만 건까지만 수집 (실제로는 약 4.3만 건 예상)
+const MAX_PAGES = 600;
 
 function getDecodedServiceKey() {
   const raw = process.env.DRUG_API_KEY;
@@ -72,7 +69,6 @@ async function fetchPage(serviceKey, pageNo, attempt = 1) {
     throw new Error(`JSON 파싱 실패 (page ${pageNo}). 응답 원문 앞부분: ${text.slice(0, 300)}`);
   }
 
-  // 이 API 계열은 { response: { header, body } } 또는 { header, body } 두 형태 모두 나올 수 있음
   const header = json?.response?.header ?? json?.header;
   if (!header || header.resultCode !== "00") {
     throw new Error(
@@ -116,7 +112,6 @@ async function fetchAll() {
   return { items: all, totalCount };
 }
 
-// 원본 응답의 필드명이 정확히 확정되지 않았을 수 있어서, 여러 후보 키를 순서대로 시도합니다.
 function pick(obj, keys) {
   for (const k of keys) {
     if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
@@ -124,18 +119,21 @@ function pick(obj, keys) {
   return "";
 }
 
+// 2026-09-xx 첫 실행 로그로 확인된 실제 필드명 기준으로 수정함:
+// 주성분 = ITEM_INGR_NAME (MATERIAL_NAME 아님)
+// 전문/일반 = SPCLTY_PBLC (ETC_OTC_NAME 아님)
 function slim(raw) {
   return {
-    ITEM_SEQ: pick(raw, ["ITEM_SEQ", "itemSeq"]),
-    ITEM_NAME: pick(raw, ["ITEM_NAME", "itemName"]),
-    ENTP_NAME: pick(raw, ["ENTP_NAME", "entpName"]),
-    MATERIAL_NAME: pick(raw, ["MATERIAL_NAME", "materialName", "MAIN_ITEM_INGR", "mainItemIngr"]),
-    ITEM_PERMIT_DATE: pick(raw, ["ITEM_PERMIT_DATE", "itemPermitDate"]),
-    ETC_OTC_NAME: pick(raw, ["ETC_OTC_NAME", "etcOtcName"]),
-    CANCEL_NAME: pick(raw, ["CANCEL_NAME", "cancelName"]),
-    CANCEL_DATE: pick(raw, ["CANCEL_DATE", "cancelDate"]),
-    CLASS_NAME: pick(raw, ["CLASS_NAME", "className"]),
-    CHART: pick(raw, ["CHART", "chart"]),
+    ITEM_SEQ: pick(raw, ["ITEM_SEQ"]),
+    ITEM_NAME: pick(raw, ["ITEM_NAME"]),
+    ENTP_NAME: pick(raw, ["ENTP_NAME"]),
+    MATERIAL_NAME: pick(raw, ["ITEM_INGR_NAME", "MATERIAL_NAME"]),
+    ITEM_PERMIT_DATE: pick(raw, ["ITEM_PERMIT_DATE"]),
+    ETC_OTC_NAME: pick(raw, ["SPCLTY_PBLC", "ETC_OTC_NAME"]),
+    CANCEL_NAME: pick(raw, ["CANCEL_NAME"]),
+    CANCEL_DATE: pick(raw, ["CANCEL_DATE"]),
+    PERMIT_KIND_CODE: pick(raw, ["PERMIT_KIND_CODE"]),
+    BIZRNO: pick(raw, ["BIZRNO"]),
   };
 }
 
@@ -180,6 +178,7 @@ async function main() {
 
   if (rawItems.length > 0) {
     console.log("첫 항목의 원본 키 목록 (필드명 확인용):", Object.keys(rawItems[0]));
+    console.log("ETC_OTC_NAME(전문/일반) 매핑 확인용 첫 항목 SPCLTY_PBLC 값:", rawItems[0].SPCLTY_PBLC);
   }
 
   const items = rawItems.map(slim);
@@ -196,7 +195,7 @@ async function main() {
   const outDir = path.resolve("data");
   await mkdir(outDir, { recursive: true });
   const outPath = path.join(outDir, "latest.json");
-  await writeFile(outPath, JSON.stringify(output), "utf-8"); // 용량이 커서 pretty-print 생략
+  await writeFile(outPath, JSON.stringify(output), "utf-8");
 
   console.log(`저장 완료: ${outPath}`);
 }
