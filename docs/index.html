@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>의약품 제품 허가정보 검색</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F6F8;
+    --card: #FFFFFF;
+    --border: #E7E9EE;
+    --ink: #1F2430;
+    --muted: #767C8C;
+    --accent: #2F6FE0;
+    --accent-soft: #E7ECFF;
+    --gap: 20px;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans KR",sans-serif; line-height:1.5; }
+  .wrap { max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+
+  .page-header {
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 18px;
+    margin-bottom: var(--gap);
+    display: flex; justify-content: space-between; align-items: flex-end; gap:16px; flex-wrap: wrap;
+  }
+  .page-header h1 { font-weight:900; font-size:26px; margin:0 0 6px; }
+  .page-header p { margin:0; color:var(--muted); font-size:13px; }
+  .stamp {
+    border: 2px solid var(--accent); color: var(--accent); font-weight:700; font-size:13px;
+    padding:6px 14px; border-radius:999px; white-space:nowrap; transform: rotate(-3deg);
+  }
+
+  .filter-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:var(--gap); }
+  .top-meta { font-size:13px; color:var(--muted); }
+  .refresh-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--card); border-radius:999px; padding:8px 14px; font-size:13px; color:var(--ink); cursor:pointer; }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px 20px; }
+  .stat-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .stat-icon { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .stat-label { font-size:13px; color:var(--muted); font-weight:500; }
+  .stat-value { font-size:26px; font-weight:900; }
+  .stat-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:22px; margin-bottom:var(--gap); }
+  .card-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:18px; }
+  .card-head h2 { font-size:15px; font-weight:700; margin:0; }
+  .card-head span { font-size:12px; color:var(--muted); }
+
+  .toolbar { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .toolbar input, .toolbar select {
+    padding:11px 14px; border:1px solid var(--border); border-radius:12px; background:var(--bg);
+    font-family:"Noto Sans KR",sans-serif; font-size:14px;
+  }
+  .toolbar input { flex:2; min-width:220px; }
+  .toolbar select { flex:1; min-width:140px; }
+  .toolbar input:focus, .toolbar select:focus { outline:2px solid var(--accent); outline-offset:1px; }
+
+  .row-count { font-size:12px; color:var(--muted); margin-bottom:10px; }
+
+  .table-wrap { max-height:560px; overflow-y:auto; border:1px solid var(--border); border-radius:14px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { text-align:left; font-weight:700; padding:10px 14px; border-bottom:1px solid var(--border); background:#FAFBFC; position:sticky; top:0; color:var(--muted); font-size:12px; }
+  tbody td { padding:10px 14px; border-bottom:1px solid var(--border); }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:#FAFBFC; }
+
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+  .badge.ok { background:var(--accent-soft); color:var(--accent); }
+  .badge.cancel { background:#FBE8E7; color:#E2574C; }
+
+  .empty-state { padding:40px 20px; text-align:center; color:var(--muted); font-size:14px; }
+  footer { margin-top:24px; font-size:12px; color:var(--muted); }
+
+  @media (max-width:760px) { .stat-grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="page-header">
+      <div>
+        <h1>의약품 제품 허가정보 검색</h1>
+        <p>출처 : 식품의약품안전처_의약품 제품 허가정보 (매일 오전 9시 30분 자동 갱신)</p>
+      </div>
+      <div class="stamp">DRUG PERMIT</div>
+    </header>
+
+    <div class="filter-row">
+      <div class="top-meta" id="updated-line">불러오는 중...</div>
+      <button class="refresh-btn" onclick="location.reload()">⟳ 새로고침</button>
+    </div>
+
+    <div class="stat-grid" id="stat-grid"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>품목 검색</h2>
+        <span id="row-count-top"></span>
+      </div>
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="품목명, 업체명, 주성분으로 검색" />
+        <select id="status-filter">
+          <option value="">전체 상태</option>
+          <option value="ok">정상</option>
+          <option value="cancel">취소/취하</option>
+        </select>
+      </div>
+      <div class="row-count" id="row-count"></div>
+      <div class="table-wrap">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th>품목명</th>
+              <th>업체명</th>
+              <th>주성분</th>
+              <th>전문/일반</th>
+              <th>허가일자</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div class="row-count" style="margin-top:10px;">※ 검색 결과가 많을 경우 상위 500건만 표시됩니다. 더 좁혀서 검색해보세요.</div>
+    </div>
+
+    <footer>copyright 2026. SJ.Jeong (Highfly Co.Ltd. - R&D Center)</footer>
+  </div>
+
+<script>
+  let allItems = [];
+
+  function fmtNum(n) { return new Intl.NumberFormat("ko-KR").format(n ?? 0); }
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  function isCancelled(it) {
+    return !!(it.CANCEL_NAME && it.CANCEL_NAME.trim() && it.CANCEL_NAME.trim() !== "정상");
+  }
+
+  function parseYYYYMMDD(s) {
+    const digits = String(s ?? "").replace(/[^0-9]/g, "");
+    if (digits.length !== 8) return null;
+    const y = Number(digits.slice(0,4)), m = Number(digits.slice(4,6)), d = Number(digits.slice(6,8));
+    if (!y || !m || !d) return null;
+    return Date.UTC(y, m-1, d);
+  }
+
+  function todayUTCFromKST() {
+    const now = new Date();
+    const kst = new Date(now.getTime() + (9*60 + now.getTimezoneOffset())*60000);
+    return Date.UTC(kst.getFullYear(), kst.getMonth(), kst.getDate());
+  }
+
+  function buildStatCards(data) {
+    const MS_DAY = 86400000;
+    const todayTs = todayUTCFromKST();
+    const cutoffTs = todayTs - 6*MS_DAY;
+
+    const recentCount = allItems.filter((it) => {
+      const ts = parseYYYYMMDD(it.ITEM_PERMIT_DATE);
+      return ts !== null && ts >= cutoffTs && ts <= todayTs;
+    }).length;
+
+    const cards = [
+      { icon:"💊", bg:"#E7ECFF", color:"#2F6FE0", label:"전체 품목 수", value:fmtNum(data.totalCount), sub:"누적 기준" },
+      { icon:"🏢", bg:"#E4F5EC", color:"#2F9E63", label:"등록 업체 수", value:fmtNum(data.summary.uniqueCompanies), sub:"고유 업체 기준" },
+      { icon:"🚫", bg:"#FBE8E7", color:"#E2574C", label:"취소/취하 품목", value:fmtNum(data.summary.cancelledCount), sub:"전체 대비" },
+      { icon:"📅", bg:"#FBF0DD", color:"#B9862B", label:"최근 7일 허가 건수", value:fmtNum(recentCount), sub:"발급일자 기준" },
+    ];
+
+    document.getElementById("stat-grid").innerHTML = cards.map((c) => `
+      <div class="stat-card">
+        <div class="stat-head">
+          <div class="stat-icon" style="background:${c.bg};color:${c.color}">${c.icon}</div>
+          <div class="stat-label">${c.label}</div>
+        </div>
+        <div class="stat-value">${c.value}</div>
+        <div class="stat-sub">${c.sub}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderTable(items) {
+    const body = document.getElementById("table-body");
+    const countText = `${fmtNum(items.length)}건 검색됨`;
+    document.getElementById("row-count").textContent = countText;
+    document.getElementById("row-count-top").textContent = countText;
+
+    if (items.length === 0) {
+      body.innerHTML = `<tr><td colspan="6"><div class="empty-state">검색 결과가 없습니다. 검색어를 입력해보세요.</div></td></tr>`;
+      return;
+    }
+
+    const slice = items.slice(0, 500);
+    body.innerHTML = slice.map((it) => {
+      const cancelled = isCancelled(it);
+      return `<tr>
+        <td>${escapeHtml(it.ITEM_NAME)}</td>
+        <td>${escapeHtml(it.ENTP_NAME)}</td>
+        <td>${escapeHtml(it.MATERIAL_NAME)}</td>
+        <td>${escapeHtml(it.ETC_OTC_NAME)}</td>
+        <td>${escapeHtml(it.ITEM_PERMIT_DATE)}</td>
+        <td><span class="badge ${cancelled ? "cancel" : "ok"}">${cancelled ? escapeHtml(it.CANCEL_NAME) : "정상"}</span></td>
+      </tr>`;
+    }).join("");
+  }
+
+  function applyFilter() {
+    const q = document.getElementById("search").value.trim().toLowerCase();
+    const statusFilter = document.getElementById("status-filter").value;
+
+    let filtered = allItems;
+
+    if (q) {
+      filtered = filtered.filter((it) =>
+        [it.ITEM_NAME, it.ENTP_NAME, it.MATERIAL_NAME].some((f) => (f ?? "").toLowerCase().includes(q))
+      );
+    }
+
+    if (statusFilter === "ok") filtered = filtered.filter((it) => !isCancelled(it));
+    if (statusFilter === "cancel") filtered = filtered.filter((it) => isCancelled(it));
+
+    renderTable(filtered);
+  }
+
+  async function init() {
+    try {
+      const res = await fetch("./data/latest.json", { cache: "no-store" });
+      const data = await res.json();
+      allItems = data.items ?? [];
+
+      document.getElementById("updated-line").textContent = data.generatedAt
+        ? `마지막 갱신: ${new Date(data.generatedAt).toLocaleString("ko-KR")}`
+        : "아직 수집된 데이터가 없습니다";
+
+      buildStatCards(data);
+
+      // 초기 화면은 전체를 다 그리지 않고 안내만 표시 (43000여건 전체 렌더링 방지)
+      document.getElementById("row-count").textContent = "검색어를 입력하면 결과가 표시됩니다";
+      document.getElementById("table-body").innerHTML =
+        `<tr><td colspan="6"><div class="empty-state">품목명, 업체명, 또는 주성분으로 검색해보세요 (전체 ${fmtNum(data.totalCount)}건)</div></td></tr>`;
+
+      document.getElementById("search").addEventListener("input", applyFilter);
+      document.getElementById("status-filter").addEventListener("change", applyFilter);
+    } catch (err) {
+      document.getElementById("updated-line").textContent = "데이터를 불러오지 못했습니다";
+      console.error(err);
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
