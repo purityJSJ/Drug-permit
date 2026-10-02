@@ -1,0 +1,40 @@
+name: Fetch Drug Permit data
+
+on:
+  schedule:
+    # 매일 09:30 KST = 00:30 UTC (DMF 수집과 겹치지 않도록 30분 뒤로)
+    - cron: "30 0 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch data
+        run: node scripts/fetch-drug.mjs
+        env:
+          DRUG_API_KEY: ${{ secrets.DRUG_API_KEY }}
+
+      - name: Copy data for GitHub Pages
+        run: |
+          mkdir -p docs/data
+          cp data/latest.json docs/data/latest.json
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/latest.json docs/data/latest.json
+          git diff --cached --quiet || git commit -m "chore: 의약품 허가정보 갱신 $(date -u +%F)"
+          git push
